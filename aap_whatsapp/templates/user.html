@@ -1,0 +1,437 @@
+{% include "/includes/head.html" %}
+<title>{% block title %}{% endblock %}  TARP</title>
+
+{% block css %}{% endblock %}
+
+<style>
+
+    body {
+        scroll-behavior: smooth;
+    }
+    #mount-point {
+        margin: 10px;
+    }
+    #mount-point form {
+        margin: 10px;
+        animation-name: myForm;
+        animation-duration: .5s;
+        animation-iteration-count: 1;
+        transition: transform .5s;
+    }
+    @keyframes myForm {
+        0% {
+            transform: scale(0.2);
+            opacity: 0.2; 
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    #sideBar {
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        width: 100vw;
+        height: 300%;
+        background-color: rgba(0, 0, 0, 0.9);
+        z-index: 10;
+    }
+
+    #form {
+        z-index: 30;
+    }
+
+    #closeUserBtn {
+        z-index: 30;
+    }
+
+</style>
+
+</head>
+<body>
+     <div id="mount-point"></div>
+</body>
+
+<footer>
+    <script type="text/jsx">
+        class Row extends React.Component{
+            constructor(props){
+                super(props);
+                this.state = {
+                    show_update_interface: false,
+                    removed:false,
+                    updated_name: undefined,
+                    updated_number: undefined,
+                    updated_broadcast: undefined
+                }
+            }
+
+
+         update_user(d){
+                this.setState({loading:true,show_update_interface:false});
+             fetch(`/api/v1/update_user/${d.id}`, {
+                     headers:{
+                         'Accept': 'application/json',
+                         'Content-Type': 'application/json'
+                     },
+                     method:'PATCH',
+                    body:JSON.stringify({name:this.state.updated_name,number:this.state.updated_number,broadcast_count:this.state.updated_broadcast})
+                 }).then(resp=>resp.json()).then(resp=>{
+                console.log(resp);
+            });
+         }
+
+
+         componentWillUpdate(nextProps, nextState) {
+             if(this.props.page !== nextProps.page) {
+                 this.setState({updated_name: undefined, updated_number: undefined, updated_broadcast: undefined});
+             }
+         }
+
+            render(){
+                let {name,number,broadcast_count,messages_received} = this.props.data;
+                
+                return(<tr>
+                        <td>
+                            {this.state.show_update_interface ?
+                                <div className="ui fluid input"><input type="text"
+                                                                           onChange={(e)=>this.setState({updated_name:e.target.value})}
+                                                                           id="update-name"
+                                                                       value={this.state.updated_name!==undefined?this.state.updated_name:name}
+                                /></div>: this.state.updated_name!==undefined?this.state.updated_name : name}
+                        </td>
+                        <td>{this.state.show_update_interface ?
+                                <div className="ui fluid input"><input type="text"
+                                                                           onChange={(e)=>this.setState({updated_number:e.target.value})}
+                                                                           id="update-number"
+                                                                       value={this.state.updated_number!==undefined?this.state.updated_number:number}
+                                                                           /></div>:
+                            this.state.updated_number!==undefined?this.state.updated_number:number}</td>
+                        <td>{this.state.show_update_interface ?
+                                <div className="ui fluid input"><input type="text"
+                                                                           onChange={(e)=>this.setState({updated_broadcast:e.target.value})}
+                                                                           id="update-number"
+                                                                       value={this.state.updated_broadcast!==undefined?this.state.updated_broadcast:broadcast_count}
+                                                                           /></div>:
+                            this.state.updated_broadcast!==undefined?this.state.updated_broadcast:broadcast_count}</td>
+                        <td className= "ui center aligned">
+                            {this.state.show_update_interface&&<button onClick={()=>this.update_user(this.props.data)} className="ui circular huge icon positive button">
+                                                                    <i className="save icon"></i>
+                                                                    
+                                                                </button>}
+                            {this.state.show_update_interface&&<button onClick={()=>this.setState({updated_number:number,updated_name:name, show_update_interface:false})} className="circular ui huge icon button">
+                                                                    <i className="angle double left icon"></i>
+                                                                </button>}
+                            {!this.state.show_update_interface&&<button onClick={()=>this.setState({show_update_interface:true})} className="circular ui huge icon button">
+                                                                    <i className="edit icon"></i>
+                                                                </button>}
+                            {!this.state.show_update_interface&&<button onClick={()=>this.props.delete_user(this.props.data)} className="circular ui negative huge icon button">
+                                                                    <i className="trash alternate icon"></i>
+                                                                </button>}
+                        </td>
+                        </tr>)
+            }
+        }
+        class UserTable extends React.Component{
+            constructor(props){
+            super(props);
+            this.state = {
+                data:[],
+                show_interface:false,
+                name: "",
+                number:null,
+                broadcast: 0,
+                loading:false,
+                page_no:1,
+                total_pages: null,
+                total_results: null,
+                paginationArray: [],
+                error: ""
+            }
+        }
+         componentDidMount(){
+             console.log('here');
+            if(this.state.page_no===1){
+             fetch(`/api/v1/users`).then(resp=>resp.json()).then(resp=>{
+                console.log({resp});
+                var totalPages = Math.ceil(resp.total / 20);
+                var arr = [];
+                for(var i=1; i <= totalPages; i++) {
+                    arr.push(i);
+                }
+                this.setState({data: resp.result, total_pages: totalPages, total_results: resp.total, paginationArray: arr});                 
+               
+            });
+            }
+            
+         }
+         delete_user(d){
+             if (window.confirm("Are you sure?")){
+              this.setState({loading:true});
+             fetch(`/api/v1/delete_user/${d.id}`,{headers:{'Accept': 'application/json'}, method:"DELETE"}).then(resp=>resp.json()).then(resp=>{
+                console.log(resp);
+                let array = [...this.state.data]; // make a separate copy of the array
+              let index = array.indexOf(d);
+                  if (index !== -1) {
+                    array.splice(index, 1);
+                    this.setState((prevState) => { 
+                        var totalResults = prevState.total_results - 1;
+                        var totalPages   = Math.ceil(totalResults / 20);
+                        var arr = [];
+                        for(var i=1; i <= totalPages; i++) {
+                            arr.push(i);
+                        }
+                        return { data: array,  
+                                 total_results: totalResults,
+                                 total_pages: totalPages,
+                                 paginationArray: arr };
+                        }
+                    );
+                }
+                // this.state.data.splice(this.state.data.indexOf(d), 1);
+                this.setState({loading:false})
+            });
+             }
+         }
+         add_user(){
+                if(this.state.number && this.state.name) {
+                    console.log(this.state.name || this.state.name );
+                    fetch('/api/v1/create_user',
+                        {
+                            headers: {
+                              'Accept': 'application/json',
+                              'Content-Type': 'application/json'
+                            },
+                            method: "POST",
+                            body: JSON.stringify({name: this.state.name, 
+                                                    number: this.state.number, 
+                                                    broadcast_count: this.state.broadcast})
+                        }).then(resp=>resp.json()).then(resp=>{
+                            if(resp.error) {
+                                this.setState({error: "Number already exists, Check again !"})
+                            } else {
+                                let newData = this.state.data.slice();
+                                newData.unshift(resp);
+                                console.log(newData);
+                                this.setState((prevState) => {
+                                    var totalResults   = prevState.total_results + 1;
+                                    var totalPages     = Math.ceil(totalResults / 20);
+                                    var arr = [];
+                                    for(var i=1; i <= totalPages; i++) {
+                                        arr.push(i);
+                                    }
+                                    return {    show_interface: false,
+                                                data:newData, 
+                                                total_pages: totalPages ,
+                                                total_results: totalResults,
+                                                paginationArray: arr
+                                            };
+                                });
+                                document.getElementById('input-name').value = '';
+                                document.getElementById('input-number').value = null;
+                                document.getElementById('input-broadcast').value = null;
+                            }
+                             
+                        });
+                    
+                }
+         }
+         nextPage(){
+            if(this.state.page_no !== this.state.total_pages) {
+                this.setState(
+                    {page_no: this.state.page_no+1},()=> {
+                        fetch(`/api/v1/users?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                            console.log(resp);
+                            // console.log({resp});
+                            this.setState({data: resp.result})
+                        })
+                    }
+                );
+                window.scrollTo(0, 0);
+                    
+            }        
+         }
+         prevPage(){
+             if(this.state.page_no !== 1) {
+                this.setState(
+                        {page_no: this.state.page_no-1},()=> {
+                           fetch(`/api/v1/users?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                                // console.log({resp});
+                                this.setState({data: resp.result})
+                            })
+                        }
+                );
+                window.scrollTo(0, 0);
+             }
+                
+         }
+         paginationHandler(index) {
+            this.setState(
+                {page_no: index},()=> {
+                   fetch(`/api/v1/users?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                        // console.log({resp});
+                        this.setState({data: resp.result})
+                    })
+                }
+            );
+            window.scrollTo(0, 0);
+        }
+
+        validationHandler() {
+            if( (this.state.name !== "") && (this.state.number >= 1000000000) && (this.state.number <= 9999999999) && (this.state.broadcast)) {
+                return true;
+            } else  {
+                return false;
+            }
+        }
+        
+        hideSideBar() {
+            this.setState({show_interface: false});
+        }
+        
+        render(){
+
+            const sideBar       =   this.state.show_interface ? (<div id="sideBar" onClick={() => this.hideSideBar()}></div>) : null;
+            
+
+            let paginationArray =   this.state.paginationArray.map( (el, id) => {
+                return ( this.state.page_no === id + 1 ? <a className="ui grey button" onClick={()=>{this.paginationHandler(el)}}>{el}</a> : 
+                    <a className="item" onClick={() => {this.paginationHandler(el)}}>{el}</a>
+                )
+            } );
+        
+
+            const data = this.state.data;
+            // console.log({data});
+            var addUserBtn  =   this.state.show_interface ? (<button className="circular huge ui right floated red icon button" id="closeUserBtn"
+                                                                     onClick={()=>{this.setState({show_interface:!this.state.show_interface})}}>
+                                                                <i className="close icon"></i>       
+                                                             </button>) : 
+                                                            (<button className="circular huge right floated ui primary icon button" 
+                                                                     onClick={()=>{this.setState({show_interface:!this.state.show_interface})}}>
+                                                                <i className="user plus icon"></i>       
+                                                             </button>);
+
+            if(!data.length) return <div className="ui active inline center aligned loader"></div>;
+            return (
+                
+
+                <div className="ui container">
+                    
+                    {sideBar}
+
+                    <div className="ui two column grid" >
+                        <div className="row">
+                            <div className="column">
+                                <h1 className="ui header"> 
+                                    <i className="users icon"></i>
+                                    <div className="content">Users - {this.state.total_results}</div>
+                                </h1>
+                            </div>
+                            <div className="column">
+                                { addUserBtn }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        {
+                            this.state.show_interface&&
+                            <div className="ui primary segment" id="form">
+                                <form className="ui form" id="addUserForm">
+                                    <h2 className="ui center aligned header">Add User</h2>
+                                    <h5 className="ui red center aligned header">   {this.state.error}</h5>
+                                    <div className="equal width fields">
+                                        <div className="field"><label htmlFor="form-subcomponent-shorthand-input-first-name">Contact name</label>
+                                            <div className="ui fluid input"><input type="text"
+                                                                                    onChange={(e)=>this.setState({name:e.target.value, error: ""})}
+                                                                                    id="input-name"
+                                                                                    placeholder="First name"/></div>
+                                        </div>
+                                        <div className="field"><label htmlFor="form-subcomponent-shorthand-input-last-name">Number</label>
+                                            <div className="ui fluid input"><input type="number"
+                                                                                    onChange={(e)=>{
+                                                                                        this.state.name === "" ? 
+                                                                                        this.setState({number:e.target.value, error: "Name required !"}) :
+                                                                                        this.setState({number:e.target.value, error: ""})  }}
+                                                                                    id="input-number"
+                                                                                    placeholder="Number"/></div>
+                                        </div>
+                                        <div className="field"><label htmlFor="form-subcomponent-shorthand-input-broadcast">BroadCasts</label>
+                                            <div className="ui fluid input"><input type="number"
+                                                                                    onChange={(e)=> { 
+                                                                                        this.state.number <= 1000000000 || this.state.number >= 9999999999 ?
+                                                                                        this.setState({broadcast:e.target.value, error: "Number must consist of 10 digits!"}) :
+                                                                                        this.setState({broadcast: e.target.value, error: ""}) }}
+                                                                                    id="input-broadcast"
+                                                                                    placeholder="BroadCasts"/></div>
+                                        </div>
+                                    </div>
+                                    <div className="ui center aligned header">
+                                        <button className= {this.validationHandler() ? "ui primary submit button" : "ui primary disabled submit button" }  
+                                                onClick={(e)=>{e.preventDefault();this.add_user()}}>Submit</button>
+                                        <button className="ui red button" onClick={(e)=>{e.preventDefault();this.hideSideBar()}}>Close</button>
+                                    </div>
+                                </form>
+                            </div>
+                        }
+                    </div>
+                    <div className="ui one column center aligned grid">
+                        <div className="row">
+                            <div className="column">
+                                <div className="ui pagination menu" >
+                                    <a className="icon item" onClick={() => {this.prevPage ()}}>
+                                        <i className="left chevron icon"></i>
+                                    </a>
+                                    { paginationArray }
+                                    <a className="icon item" onClick={() => {this.nextPage()}}>
+                                        <i className="right chevron icon"></i>
+                                    </a>
+                                </div>  
+                            </div>
+                        </div>    
+                    </div>
+                <div>
+                    </div>
+                    
+                    <table className="ui fixed celled table">
+                        <thead className="">
+                            <tr className="">
+                                <th className="">Name ({data.length})</th>
+                                <th className="">Number</th>
+                                <th className="">Total BroadCasts ( {data.map(u=>u.broadcast_count).reduce(function(a, b){return a+b;})} )</th>
+                                <th className="">Options</th>
+                            </tr>
+                        </thead>
+                        <tbody className="">
+                            {data.map(d => <Row page={this.state.page_no} data={d} delete_user={this.delete_user.bind(this)}/>)}
+                        </tbody>
+                    </table>
+                    <div>
+                        <div className="ui relaxed center aligned grid">
+                            <div className="one column row">
+                                <div className="column">
+                                    <div className="ui pagination menu">
+                                        <a className="icon item" onClick={()=>this.prevPage()}>
+                                            <i className="left chevron icon"></i>
+                                        </a>
+                                        { paginationArray }
+                                        <a className="icon item" onClick={()=>this.nextPage()}>
+                                            <i className="right chevron icon"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>    
+                        </div>
+                    </div>
+                </div>
+                );
+        }
+    }
+    React.render(<UserTable />, document.getElementById('mount-point') );
+
+     </script>
+    {% block footJs %}{% endblock %}
+    {% include "/includes/foot.html" %}

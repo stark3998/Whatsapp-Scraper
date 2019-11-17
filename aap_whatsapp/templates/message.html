@@ -1,0 +1,585 @@
+{% include "/includes/head.html" %}
+<title>{% block title %}{% endblock %}  TARP</title>
+
+{% block css %}{% endblock %}
+
+<style>
+
+    html, body{
+        height: 100%;
+    }
+
+    #mount-point {
+        padding: 10px;
+    }
+
+    .backDrop{
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        background-color: rgba(0, 0, 0, 0.95);
+        width: 100vw;
+        height: 100vh;
+        z-index: 10;
+    }
+
+    #mount-point form {
+        margin: 10px;
+        animation-name: myForm;
+        animation-duration: .5s;
+        animation-iteration-count: 1;
+        transition: transform .5s;
+        z-index: 20;
+    }
+    @keyframes myForm {
+        0% {
+            transform: scale(0.2);
+            opacity: 0.2; 
+        }
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+
+    #showMore {
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        right: 0px;
+        width: 1000px;
+        height: 550px;
+        z-index: 20;
+        margin: 50px auto;
+        background-color: aliceblue;
+        animation-name: myForm;
+        animation-duration: .5s;
+        animation-iteration-count: 1;
+        padding: 30px;
+        
+    }
+
+    #showRecievedFromUsersInfo {
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        right: 0px;
+        width: 600px;
+        height: 600px;
+        z-index: 20;
+        margin: 50px auto;
+        background-color: grey;
+        animation-name: myForm;
+        animation-duration: .5s;
+        animation-iteration-count: 1;
+        overflow-y: auto; 
+    }
+
+    #showMoreInnerDiv {
+        height: 400px;
+        overflow-y: auto;
+    }
+
+    #updateMessage {
+        position: fixed;
+        top: 0px;
+        left: 0px;
+        right: 0px;
+        width: 1000px;
+        height: 550px;
+        z-index: 20;
+        margin: 50px auto;
+        background-color: aliceblue;
+        animation-name: myForm;
+        animation-duration: .5s;
+        animation-iteration-count: 1;
+        padding: 30px;
+    }
+</style>
+
+</head>
+<body>
+     <div id="mount-point" style="background:#cecece"></div>
+</body>
+
+<footer>
+    <script type="text/jsx">
+        class Row extends React.Component{
+            constructor(props){
+                super(props);
+                this.state = {
+                    show_details:false,
+                    show_row:true,
+                    show_more: false,
+                    show_backDrop: false
+                }
+            }
+            truncate(s) {
+                console.log(s);
+               if (s.length > 500)
+                     return s.substring(0, 500) + "...";
+                  else
+                     return s;
+            }
+            update_message(d){
+                if(this.state.updated_text){
+                    this.setState({loading:true,show_update_interface:false, show_backDrop: false});
+             fetch(`/api/v1/update_message/${d.id}`, {
+                        headers:{
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        method:'PATCH',
+                        body:JSON.stringify({text:this.state.updated_text})
+                    }).then(resp=>resp.json()).then(resp=>{
+                    console.log(resp)
+                });
+                }
+            }
+
+            hidebackDrop() {
+                this.setState({show_backDrop: false, show_update_interface: false, show_more: false, show_details_all: false, show_details_none: false, show_details_some: false});
+            }
+
+            showMoreInfo(message) {
+                this.setState({show_backDrop:true, show_more: true});
+                setTimeout(()=> document.getElementById('showMoreInnerDiv').innerHTML  =   message, 100);
+            }
+
+             componentWillUpdate(nextProps, nextState) {
+                if(this.props.page !== nextProps.page) {
+                    this.setState({updated_text: undefined});
+                }
+            }
+
+            render(){
+
+                let backDrop   =  this.state.show_backDrop ? (<div className="backDrop" onClick={() => this.hidebackDrop() }></div>) : null;
+                let showMoreContainer   =   this.state.show_more ? (<div id="showMore">
+                                                                        <h1 className="ui center aligned header">Message</h1>
+                                                                        <div id="showMoreInnerDiv"></div>
+                                                                        <div className="ui center aligned header">
+                                                                            <button className="ui red button" onClick={() => this.hidebackDrop()}>Close</button>
+                                                                        </div>
+                                                                    </div>) : null;
+            
+
+                let {text,received_from_users} = this.props.data;
+                let users = this.props.users;
+
+                return (
+                    
+                    
+                    <tr >
+                            { backDrop }
+                            { showMoreContainer }
+                        {this.state.show_row&&<td className="" colSpan="4" style={ {fontSize:"16px"} }>
+                            {this.state.show_update_interface ?
+                            <div className="ui fluid form" id="updateMessage">
+                                <div className="ui center aligned header">Edit Message</div>
+                                <textarea rows="20" 
+                                            onChange={(e)=>{e.preventDefault();this.setState({updated_text:e.target.value})}}
+                                            id="update-text"
+                                        value={this.state.updated_text!==undefined?this.state.updated_text:text} />
+                                <div className="ui center aligned header">
+                                        <button onClick={()=> { this.update_message(this.props.data);}} className="ui positive button">Save</button>
+                                        <button onClick={()=> { this.setState({updated_text:text,show_update_interface:false, show_backDrop: false});}} className="ui button">Back</button>                                       
+                                </div>
+                            </div>:
+                            this.truncate(this.state.updated_text!==undefined?this.state.updated_text:text)
+                            }
+                            {
+                                this.state.updated_text !== undefined ? 
+                                    this.state.updated_text.length > 500 ? 
+                                        (<button className="ui black mini right floated button" 
+                                                 onClick={this.showMoreInfo.bind(this, this.state.updated_text!==undefined?this.state.updated_text:text)}>
+                                                    Show more
+                                        </button>) : null :
+                                    text.length > 500 ?
+                                        (<button className="ui black mini right floated button" 
+                                        onClick={this.showMoreInfo.bind(this, this.state.updated_text!==undefined?this.state.updated_text:text)}>
+                                                    Show more
+                                        </button>) : null
+                            }
+
+                        </td>}
+                        {this.state.show_row&&
+                            <td className="" >
+                                <table className="ui basic table">
+                                    <tbody className="">
+                                        <tr className="negative">
+                                            <td className="selectable"
+                                                onClick={(e)=>{
+                                                    console.log(received_from_users.length)
+                                                    e.preventDefault()
+                                                    received_from_users.length>0 ?
+                                                    this.setState({show_details_none:true, show_backDrop: true})
+                                                    :
+                                                    ""
+                                                }}
+                                            >
+                                                <a href="#">
+                                                    <h2 className="ui center aligned red header">
+                                                        {users.length-received_from_users.length}
+                                                    </h2>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        <tr className="warning">
+                                            <td className="selectable"
+                                                onClick={(e)=>{
+                                                    e.preventDefault()
+                                                    received_from_users.length>0 ?
+                                                        this.setState({show_details_some:true,show_backDrop: true})
+                                                        :
+                                                        ""
+                                                }}
+                                            >
+                                                <a href="#">
+                                                    <h2 className="ui center aligned yellow header">{received_from_users.filter(u=>u.user.broadcast_count>u.receive_count).length}</h2>
+                                                </a>
+                                            </td>
+
+                                        </tr>
+                                        <tr className="positive">
+                                            <td className="selectable"
+                                                onClick={(e)=>{
+                                                    e.preventDefault();
+                                                    received_from_users.length>0 ?
+                                                        this.setState({show_details_all:true,show_backDrop:true})
+                                                        :
+                                                        ""
+                                                }}
+                                            >
+                                                <a href="#">
+                                                    <h2 className="ui center aligned green header">{received_from_users.filter(u=>u.user.broadcast_count<=u.receive_count).length}</h2>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>}
+                        {this.state.show_row&&<td className="center aligned">
+                            {!this.state.show_update_interface&&<button onClick={()=> { this.setState({show_update_interface:true, show_backDrop: true});}} 
+                                                                        className="circular huge ui icon button">
+                                                                            <i className="edit icon"></i>
+                                                                        </button>}
+                            {!this.state.show_update_interface&&<button onClick={()=>this.props.delete_message(this.props.data)} 
+                                                                        className="ui circular huge icon negative button">
+                                                                            <i className="trash alternate icon"></i>
+                                                                        </button>}
+                        </td>}
+                        {this.state.show_details_none&&
+                            <div id="showRecievedFromUsersInfo">
+                                <button className="ui icon button"  onClick={()=> { this.setState({show_details_none:false}); this.hidebackDrop(); }} ><i className="arrow left icon"></i> Back</button>
+                                <div role="list" className="ui celled selection middle aligned very relaxed animated ordered list" style={ {width: "400px", margin: "auto", fontWeight: "bolder"} }>
+                                    {users.filter(u=>received_from_users.map(us=>us.user.id).indexOf(u.id)===-1).map(user=>
+                                        <div role="listitem" className="item">
+                                            <img src="http://www.sfb902.de/wp-content/uploads/2016/01/dummy-user_1366220506.jpg" className="ui avatar image"/>
+                                        <div className="content">
+                                            <div className="header"> {user.name}</div>
+                                            ({user.number})
+                                        </div>
+                                            <h2 className="ui right floated header"> 0 / {user.broadcast_count || "Null"}</h2>
+                                    </div>)}
+                                </div>
+                            </div>
+
+                        }
+                        {this.state.show_details_some&&
+                            <div id="showRecievedFromUsersInfo">
+                                <button className="ui icon button" onClick={()=> { this.setState({show_details_some:false}); this.hidebackDrop();}}><i className="arrow left icon"/>Back</button>
+                                <div role="list" className="ui selection middle aligned ordered list" style={ {width: "400px", marginLeft: "auto"} }>
+                                    {received_from_users.filter(u=>u.user.broadcast_count > u.receive_count).map(user=>
+                                        <div role="listitem" className="item">
+                                            <img src="http://www.sfb902.de/wp-content/uploads/2016/01/dummy-user_1366220506.jpg" className="ui avatar image"/>
+                                        <div className="content">
+                                            <div className="header"> {user.user.name}</div>
+                                            ({user.user.number})
+                                        </div>
+                                            <h2 className="ui right floated header"> {user.receive_count} / {user.user.broadcast_count || "Null"}</h2>
+                                    </div>)}
+                                </div>
+                            </div>
+                        }
+                        {this.state.show_details_all&&
+                            <div id="showRecievedFromUsersInfo">
+                                <button className="ui icon button" onClick={()=> {this.setState({show_details_all:false,show_row:true}); this.hidebackDrop(); }}><i className="arrow left icon" />Back</button>
+                                <div role="list" className="ui selection middle aligned ordered list" style={ {width: "400px", marginLeft: "auto"} }>
+                                    {received_from_users.filter(u=>u.user.broadcast_count<=u.receive_count).map(user=>
+                                        <div role="listitem" className="item">
+                                            <img src="http://www.sfb902.de/wp-content/uploads/2016/01/dummy-user_1366220506.jpg" className="ui avatar image"/>
+                                        <div className="content">
+                                            <div className="header"> {user.user.name}</div>
+                                            ({user.user.number})
+                                        </div>
+                                            <h2 className="ui right floated header"> {user.receive_count} / {user.user.broadcast_count || "Null"}</h2>
+                                    </div>)}
+                                </div>
+                            </div>
+                        }
+                    </tr>
+                )
+            }
+        }
+        class MessageTable extends React.Component{
+            constructor(props){
+            super(props);
+            this.state = {
+                data:[],
+                show_interface:false,
+                message_text: "",
+                users:[],
+                total_results: null,
+                total_pages: null,
+                page_no: 1,
+                paginationArray: []
+            }
+        }
+         componentDidMount(){
+             console.log('here');
+            fetch('/api/v1/messages?is_active=true').then(resp=>resp.json()).then(resp=>{
+                // console.log(resp);
+                var totalPages = Math.ceil(resp.total / 20);
+                var arr = [];
+                for(var i=1; i <= totalPages; i++) {
+                    arr.push(i);
+                }
+                this.setState({data: resp.result, total_pages: totalPages, total_results: resp.total, paginationArray: arr});
+            });
+            fetch('/api/v1/users?per_page=5000').then(resp=>resp.json()).then(resp=>{
+                // console.log(resp);
+                this.setState({users: resp.result});
+                console.log(this.state.users);
+            });
+         }
+         add_message(){
+                if(this.state.message_text) {
+                    console.log(this.state.message_text);
+                    fetch('/api/v1/create_message',
+                        {
+                            headers: {
+                              'Accept': 'application/json',
+                              'Content-Type': 'application/json'
+                            },
+                            method: "POST",
+                            body: JSON.stringify({text: this.state.message_text})
+                        }).then(resp=>resp.json()).then(resp=>{
+                             let newData = this.state.data.slice();
+                             newData.unshift(resp);
+                             this.setState((prevState) => {
+                                let totalResults = prevState.total_results + 1;
+                                let totalPages   = Math.ceil ( totalResults / 20 );
+                                let arr = [];
+                                for(let i=1; i<=totalPages; i++) {
+                                    arr.push(i);
+                                }
+                                return {data:newData, 
+                                        show_interface: false,  
+                                        paginationArray: arr,
+                                        total_pages: totalPages,
+                                        total_results: totalResults
+                                    }
+                             })
+                        });
+                    document.getElementById('msg-text').value = ''
+
+                }
+         }
+         delete_message(d){
+             if (window.confirm("Are you sure?")){
+              this.setState({loading:true});
+             fetch(`/api/v1/delete_message/${d.id}`,{headers:{'Accept': 'application/json'}, method:"DELETE"}).then(resp=>resp.json()).then(resp=>{
+                console.log(resp);
+                let array = [...this.state.data]; // make a separate copy of the array
+              let index = array.indexOf(d);
+                  if (index !== -1) {
+                    array.splice(index, 1);
+
+                    this.setState((prevState) => {
+                        let totalResults = prevState.total_results - 1;
+                        let totalPages   = Math.ceil ( totalResults / 20 );
+                        let arr = [];
+                        for(let i=1; i<=totalPages; i++) {
+                            arr.push(i);
+                        }
+                        return {data:array,   
+                                paginationArray: arr,
+                                total_pages: totalPages,
+                                total_results: totalResults
+                            }
+                     })
+                  }
+                // this.state.data.splice(this.state.data.indexOf(d), 1);
+                this.setState({loading:false})
+            });
+             }
+         }
+
+         hidebackDrop() {
+            this.setState({show_interface: false});
+         }
+
+         paginationHandler(index) {
+            this.setState(
+                {page_no: index},()=> {
+                   fetch(`/api/v1/messages?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                        // console.log({resp});
+                        this.setState({data: resp.result})
+                    })
+                }
+            );
+            window.scrollTo(0, 0);
+        }
+
+
+        nextPage(){
+            if(this.state.page_no !== this.state.total_pages) {
+                this.setState(
+                    {page_no: this.state.page_no+1},()=> {
+                        fetch(`/api/v1/messages?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                            console.log(resp);
+                            // console.log({resp});
+                            this.setState({data: resp.result})
+                        })
+                    }
+                );
+                window.scrollTo(0, 0);
+                    
+            }        
+         }
+         prevPage(){
+             if(this.state.page_no !== 1) {
+                this.setState(
+                        {page_no: this.state.page_no-1},()=> {
+                           fetch(`/api/v1/messages?page=${this.state.page_no}`).then(resp => resp.json()).then(resp => {
+                                // console.log({resp});
+                                this.setState({data: resp.result})
+                            })
+                        }
+                );
+                window.scrollTo(0, 0);
+             }
+                
+         }
+         
+
+        render(){
+
+            
+
+            let backDrop   =  this.state.show_interface ? (<div className="backDrop" onClick={() => this.hidebackDrop() }></div>) : null;
+            const {data} = this.state;
+            // console.log(data);
+
+
+            var addMessageBtn  =   this.state.show_interface ? (<button className="circular huge ui right floated red icon button" id="closeUserBtn"
+                                                                        onClick={()=>{this.setState({show_interface:!this.state.show_interface, show_backDrop: !this.state.show_backDrop})}}>
+                                                                <i className="close icon"></i>       
+                                                                </button>) : 
+                                                            (<button className="circular huge right floated ui primary icon button" 
+                                                                        onClick={()=>{this.setState({show_interface:!this.state.show_interface, show_backDrop: !this.state.show_backDrop})}}>
+                                                                <i className="plus icon"></i>       
+                                                                </button>);
+
+            let paginationArray =   this.state.paginationArray.map( (el, id) => {
+                return ( this.state.page_no === id + 1 ? <a className="ui grey button" onClick={()=>{this.paginationHandler(el)}}>{el}</a> : 
+                    <a className="item" onClick={() => {this.paginationHandler(el)}}>{el}</a>
+                )
+            } );
+
+            return (
+
+                <div className="ui container">
+
+                        { backDrop }
+
+                        <div className="ui two column grid" >
+                            <div className="row">
+                                <div className="column">
+                                    <h1 className="ui header"> 
+                                        <i className="envelope icon"></i>
+                                        <div className="content">Message - {this.state.total_results}</div>
+                                    </h1>
+                                </div>
+                                <div className="column">
+                                    { addMessageBtn }
+                                </div>
+                            </div>
+                        </div>
+
+                    {this.state.show_interface&&
+                        <div>
+                            <form className="ui form">
+                                <h2 className="ui center aligned inverted header">Add Message</h2>
+                                <textarea
+                                    id="msg-text"
+                                    onChange={(e)=>this.setState({message_text:e.target.value})}
+                                    placeholder="Enter Message"
+                                    rows="20"/>
+                                <div className="ui center aligned header">
+                                    <button disabled={this.state.message_text === ""} className="ui primary button" onClick={(e)=>{e.preventDefault();this.add_message()}}>Submit</button>
+                                    <button className="ui red button" onClick={ (e) => { e.preventDefault();this.hidebackDrop()}}>Close</button> 
+                                </div>    
+                            </form>
+                        </div>
+                    }
+
+
+                    <div className="ui one column center aligned grid">
+                        <div className="row">
+                            <div className="column">
+                                <div className="ui pagination menu" >
+                                    <a className="icon item" onClick={this.prevPage.bind(this)}>
+                                        <i className="left chevron icon"></i>
+                                    </a>
+                                    { paginationArray }
+                                    <a className="icon item" onClick={this.nextPage.bind(this)}>
+                                        <i className="right chevron icon"></i>
+                                    </a>
+                                </div>  
+                            </div>
+                        </div>    
+                    </div>
+
+                    <table className="ui celled fixed table">
+                        <thead className="">
+                            <tr className="">
+                                <th className="" colSpan="4">Text - { this.state.data.length } </th>
+                                <th className="" colSpan="1">Received from</th>
+                                <th className="" colSpan="1">Options</th>
+                            </tr>
+                        </thead>
+                        <tbody className="">
+                        {data.map(d => <Row data={d} 
+                                            page={this.state.page_no}
+                                            users={this.state.users} 
+                                            delete_message={this.delete_message.bind(this)}/>)}
+                        </tbody>
+                    </table>
+
+                    <div className="ui one column center aligned grid">
+                        <div className="row">
+                            <div className="column">
+                                <div className="ui pagination menu" >
+                                    <a className="icon item" onClick={this.prevPage.bind(this)}>
+                                        <i className="left chevron icon"></i>
+                                    </a>
+                                    { paginationArray }
+                                    <a className="icon item" onClick={this.nextPage.bind(this)}>
+                                        <i className="right chevron icon"></i>
+                                    </a>
+                                </div>  
+                            </div>
+                        </div>    
+                    </div>
+
+
+                </div>
+                );
+        }
+    }
+    React.render(<MessageTable />, document.getElementById('mount-point') );
+     </script>
+    {% block footJs %}{% endblock %}
+    {% include "/includes/foot.html" %}
